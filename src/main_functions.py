@@ -15,7 +15,8 @@ factory.registerObject( KakuyomuNovel   )
 
 
 
-def archiveUpdate(dirList=[],keep_text_format=False):
+async def archiveUpdate(dirList=[],keep_text_format=False):
+    print("updating")
     if not dirList:
         dirList=os.listdir('./novel_list')
     print("list=")
@@ -47,10 +48,10 @@ def archiveUpdate(dirList=[],keep_text_format=False):
         #let's update the archive
         novel.setDir('./novel_list/'+novel_folder)
         print(type(novel))
-        novel.processNovel()
+        await novel.processNovel()
 
 
-def archiveFullUpdate(dirList=[],force=False):
+async def archiveFullUpdate(dirList=[],force=False):
     if not dirList:
         dirList=os.listdir('./novel_list')
     for novel_folder in dirList:
@@ -92,17 +93,17 @@ def archiveFullUpdate(dirList=[],force=False):
                 elif isinstance(novel,SyosetuNovel) :
                     novel.setLastChapter(int(i)) #work around cause conception is shit
                     chap=int(i)
-                    novel.processChapter(chap)
+                    await novel.processChapter(chap)
                     continue
                 #TODO:
                 elif isinstance(novel,KakuyomuNovel):
                     novel.setLastChapter(last_downloaded)
                     novel.setDir('./novel_list/'+novel_folder)
-                    novel.processNovel()
+                    await novel.processNovel()
         novel.setLastChapter(int(last_downloaded))
         #now that we have the number of the last chapter and the novel code
         #let's update the archive
-        novel.processNovel()
+        await novel.processNovel()
 
 
 
@@ -133,7 +134,7 @@ def getNovelInfoFromFolderName(folderName) :
 
 
 
-def download(keep_text_format=False):
+async def download(keep_text_format=False):
     if('novel_list' not in os.listdir('.')):
         os.mkdir('novel_list')
     novel_list=getInputFile()
@@ -184,7 +185,7 @@ def download(keep_text_format=False):
             #dir_path='./novel_list/'+code+' '+name
             novel.setDir(dir_path)
             novel.setLastChapter(0)
-            novel.processNovel()
+            await novel.processNovel()
         except Exception as err:
             # log = logging.getLogger(__name__)
             # log.exception("")
@@ -192,7 +193,7 @@ def download(keep_text_format=False):
             raise(err)
 
 
-def download_cli(userInput:str):
+async def download_cli(userInput:str):
     novel_info = userInput.strip().split(';')
     if(len(novel_info)<2):
         novel_info.append('')
@@ -231,7 +232,7 @@ def download_cli(userInput:str):
     #path='./novel_list/'+code+' '+name
     novel.setDir(path)
     novel.setLastChapter(0)
-    novel.processNovel()
+    await novel.processNovel()
 
 
 def getFolderStatus():

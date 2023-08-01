@@ -8,4 +8,4 @@ PyQt5
 selenium
 
 ###### Requirements with Version Specifiers ######`
-requests~=2.25      # Compatible release.
+requests      # Compatible release.

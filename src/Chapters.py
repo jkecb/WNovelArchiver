@@ -1,7 +1,11 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-
+import time
+import requests
+from datetime import datetime
+import aiohttp
+import asyncio
 
 
 def checkFileName(name) -> str:
@@ -41,12 +45,55 @@ class Chapter():
     def getUrl(self) -> str:
         return self.url
 
-    def processChapter(self,headers):
-        chapter_rep = requests.get(self.getUrl(), headers=headers)
-        chapter_rep.encoding = 'utf-8'
-        chapter_html = chapter_rep.text
+    async def processChapter(self, session, headers):
+        max_retries = 16
+        initial_retry_delay = 2  # initial delay in seconds
+
+        for i in range(max_retries):
+            try:
+                if i != 0:
+                    print(f"Attempt {i+1} at {datetime.now()}")
+                async with session.get(self.getUrl(), headers=headers) as resp:
+                    chapter_html = await resp.text()
+                # If the download is successful, break the loop
+                break
+            except Exception as e:
+                print(f"Error occurred: {e}")
+                if i < max_retries - 1:  # No delay needed after the last attempt
+                    retry_delay = initial_retry_delay * (2 ** i)  # Exponential backoff
+                    print(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    print("Max retries exceeded. Exiting.")
+                    raise
         self.setTitle(self.parseTitle(chapter_html))
         self.setContent(self.parseContent(chapter_html))
+
+    # def processChapter(self,headers):
+
+    #     max_retries = 16
+    #     initial_retry_delay = 2  # initial delay in seconds
+
+    #     for i in range(max_retries):
+    #         try:
+    #             if i!=0:
+    #                 print(f"Attempt {i+1} at {datetime.now()}")
+    #             chapter_rep = requests.get(self.getUrl(), headers=headers)
+    #             # If the download is successful, break the loop
+    #             break
+    #         except requests.exceptions.RequestException as e:
+    #             print(f"Error occurred: {e}")
+    #             if i < max_retries - 1:  # No delay needed after the last attempt
+    #                 retry_delay = initial_retry_delay * (2 ** i)  # Exponential backoff
+    #                 print(f"Retrying in {retry_delay} seconds...")
+    #                 time.sleep(retry_delay)
+    #             else:
+    #                 print("Max retries exceeded. Exiting.")
+    #                 raise
+    #     chapter_rep.encoding = 'utf-8'
+    #     chapter_html = chapter_rep.text
+    #     self.setTitle(self.parseTitle(chapter_html))
+    #     self.setContent(self.parseContent(chapter_html))
         
         
     def parseTitle(self,html) -> str:

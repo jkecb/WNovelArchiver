@@ -134,7 +134,7 @@ class Novel(NovelCallbacks,FactoryTarget):
         """ download chapter from site. """
         raise Exception(self,"doesn't have a proper downloadNovel function definition")
 
-    def processNovel(self) -> str: # type: ignore
+    async def processNovel(self) -> str: # type: ignore
         """ will process the html and download the chapter """
         raise Exception(self,"doesn't have a proper processNovel function definition")
 
@@ -212,19 +212,31 @@ class Novel(NovelCallbacks,FactoryTarget):
         """method meant to be implemented by subclasses, determine the url to said novel"""
         raise("setUrl method is not defined")
     
-    
-    def fetchTOCPage(self):
+    async def fetchTOCPage(self):
         """fetch the TOC page of the novel"""
         url = self.url
         headers = self.headers
         print('accessing: ' + url)
         print()
-        rep = requests.get(url, headers=headers)
-        rep.encoding = 'utf-8'
-        rep.raise_for_status()
-        html = rep.text
-        self.html = html
-        return html
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as resp:
+                resp.raise_for_status()
+                html = await resp.text()
+                self.html = html
+                return html
+    # def fetchTOCPage(self):
+    #     """fetch the TOC page of the novel"""
+    #     url = self.url
+    #     headers = self.headers
+    #     print('accessing: ' + url)
+    #     print()
+    #     rep = requests.get(url, headers=headers)
+    #     rep.encoding = 'utf-8'
+    #     rep.raise_for_status()
+    #     html = rep.text
+    #     self.html = html
+    #     return html
 
     def parseOnlineChapterList(self, html) -> list:
         """parse the list of chapters from the HTML of the TOC page"""
@@ -233,8 +245,8 @@ class Novel(NovelCallbacks,FactoryTarget):
     def parseTocResume(self, html=''):
         """ format and interpret the content of the home page of the novel """
         warnings.warn("This class doesn't have a method to parse the table of content's resume.")
-
-    def processNovel(self):
+    
+    async def processNovel(self):
         print("novel " + self.titre)
         print('last chapter: ' + str(self.getLastChapter()))
         try:
@@ -248,26 +260,63 @@ class Novel(NovelCallbacks,FactoryTarget):
             resumeContent = self.parseTocResume(html)
             # self.save("0_TOC",resumeContent)
         if (len(online_chapter_list) >= 1):
-
             # get the chapters url
             lastDL = self.getLastChapter()
             online_chapter_list = online_chapter_list[lastDL:]
-            print("there are %d chapters to udpate" % len(online_chapter_list))
+            print("there are %d chapters to update" % len(online_chapter_list))
             print(online_chapter_list)
-            self.processChapter(online_chapter_list)
+            await self.processChapter(online_chapter_list)
+
             # will add new files for every revised chapters
             self.updatePerDate(html)
         else:
             print("this web novel has most likely been terminated")
-            
-    def processChapter(self, chapList):
-        """ download every chapter of the list """
-        for chapter_num in chapList:
-                chap = self.getChapter(chapter_num)
-                chap.createFile(self.dir + '/')
-        pass
     
-    def getChapter(self,chapter_num) ->Chapter:
+    # async def processNovel(self):
+    #     print("novel " + self.titre)
+    #     print('last chapter: ' + str(self.getLastChapter()))
+    #     try:
+    #         html = self.fetchTOCPage();
+    #     except  requests.HTTPError :
+    #         print("can't acces the novel TOC page")
+    #         return ''
+    #     # get the number of chapters (solely for user feedback)
+    #     online_chapter_list = self.parseOnlineChapterList(html)
+    #     if (self.getLastChapter() == 0):
+    #         resumeContent = self.parseTocResume(html)
+    #         # self.save("0_TOC",resumeContent)
+    #     if (len(online_chapter_list) >= 1):
+
+    #         # get the chapters url
+    #         lastDL = self.getLastChapter()
+    #         online_chapter_list = online_chapter_list[lastDL:]
+    #         print("there are %d chapters to udpate" % len(online_chapter_list))
+    #         print(online_chapter_list)
+    #         self.processChapter(online_chapter_list)
+    #         # will add new files for every revised chapters
+    #         self.updatePerDate(html)
+    #     else:
+    #         print("this web novel has most likely been terminated")
+            
+    async def processChapter(self, chapList):
+        semaphore = asyncio.Semaphore(3)  # Adjust the number as needed
+        # Create a new session for each chapter
+        async with aiohttp.ClientSession() as session:
+            # Gather all tasks and run them concurrently
+            tasks = [self.get_chapter_with_semaphore(session, chapter,semaphore) for chapter in chapList]
+            chapters=await asyncio.gather(*tasks)
+        """ download every chapter of the list """
+        for chap in chapters:
+            chap.createFile(self.dir + '/')
+
+
+
+    async def get_chapter_with_semaphore(self, session, chapter,semaphore):
+        
+        async with semaphore:
+            return await self.getChapter(session, chapter)
+        
+    async def getChapter(self,session, chapter_num) ->Chapter:
         """return the subclass chapter type"""
         raise("getChapter method is not defined")
     
@@ -359,9 +408,9 @@ class SyosetuNovel(Novel):
             resume.insert(0, string)
             self.createFile(0, 'TOC', resume)
 
-    def getChapter(self, chapter_num):
+    async def getChapter(self,session, chapter_num):
         chapter = SyosetuChapter(self.code, chapter_num)
-        chapter.processChapter(self.headers)
+        await chapter.processChapter(session,self.headers)
         return chapter
 
     def cleanText(self, chapter_content):
@@ -390,7 +439,7 @@ class SyosetuNovel(Novel):
         
 
 
-def test():
+async def test():
     import os
 
     x = Novel('n6912eh', 'My Skills Are Too Strong to Be a Heroine')
@@ -460,10 +509,10 @@ class KakuyomuNovel(Novel):
             '<p class="widget-episodeTitle js-vertical-composition-item">(.*?)<', name)[0]
         return chapter_title
     
-    def getChapter(self,chapter_num) ->Chapter:
+    async def getChapter(self,session,chapter_num) ->Chapter:
         # workaround because of absolute kakyomu's absolute links
         chap =KakyomuChapter(self.onlineChapterList.index(chapter_num),chapter_num)
-        chap.processChapter(self.headers)
+        await chap.processChapter(session, self.headers)
         return chap
 
 

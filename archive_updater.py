@@ -78,20 +78,20 @@ def check_env():
     except FileNotFoundError: 
         os.mkdir('novel_list')
 
-def option_download(args):
+async def option_download(args):
     keep_text_format=args.md
     if args.i:
         print(args.i)
-        download_cli(args.i)
+        await download_cli(args.i)
     else: 
         print("downloading")
-        download(keep_text_format)
+        await download(keep_text_format)
     
 
-def option_update(args):
+async def option_update(args):
     keep_text_format=args.md
     regex=args.r
-    archiveUpdate(findNovel(regex),keep_text_format)
+    await archiveUpdate(findNovel(regex),keep_text_format)
        
 def option_zip(args):
     regex=args.r
@@ -140,7 +140,11 @@ def parser():
     args = parser.parse_args()
     print(args)
     if(hasattr(args,"func")):
-        print(args.func(args))
+        # Create a new event loop
+        loop = asyncio.get_event_loop()
+        # Use the event loop to run the async function
+        result = loop.run_until_complete(args.func(args))
+        print(result)
     else :
         parser.print_help()
     
