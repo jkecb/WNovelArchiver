@@ -1,4 +1,3 @@
-###### Requirements without Version Specifiers ######`
 beautifulsoup4
 bs4
 cookiejar
@@ -6,6 +5,7 @@ mechanize
 requests_html
 PyQt5
 selenium
-
-###### Requirements with Version Specifiers ######`
-requests      # Compatible release.
+requests
+aiohttp
+asyncio
+datetime
