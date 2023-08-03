@@ -2,6 +2,9 @@
 light_novel/
 /pdf/
 input.txt
+input2.txt
+input3.txt
+html.txt
 n*/
 __*
 settings*
@@ -17,3 +20,4 @@ baseCode/*
 build/*
 dist/*
 novelArchive
+crawl_lsit.ipynb

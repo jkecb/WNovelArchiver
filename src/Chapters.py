@@ -69,31 +69,6 @@ class Chapter():
         self.setTitle(self.parseTitle(chapter_html))
         self.setContent(self.parseContent(chapter_html))
 
-    # def processChapter(self,headers):
-
-    #     max_retries = 16
-    #     initial_retry_delay = 2  # initial delay in seconds
-
-    #     for i in range(max_retries):
-    #         try:
-    #             if i!=0:
-    #                 print(f"Attempt {i+1} at {datetime.now()}")
-    #             chapter_rep = requests.get(self.getUrl(), headers=headers)
-    #             # If the download is successful, break the loop
-    #             break
-    #         except requests.exceptions.RequestException as e:
-    #             print(f"Error occurred: {e}")
-    #             if i < max_retries - 1:  # No delay needed after the last attempt
-    #                 retry_delay = initial_retry_delay * (2 ** i)  # Exponential backoff
-    #                 print(f"Retrying in {retry_delay} seconds...")
-    #                 time.sleep(retry_delay)
-    #             else:
-    #                 print("Max retries exceeded. Exiting.")
-    #                 raise
-    #     chapter_rep.encoding = 'utf-8'
-    #     chapter_html = chapter_rep.text
-    #     self.setTitle(self.parseTitle(chapter_html))
-    #     self.setContent(self.parseContent(chapter_html))
         
         
     def parseTitle(self,html) -> str:
@@ -149,10 +124,10 @@ class KakyomuChapter(Chapter):
         pass
     
     def parseTitle(self, html) -> str:
-        print("parsing title")
+        #print("parsing title")
         chapter_title = re.findall(
             '<p class="widget-episodeTitle js-vertical-composition-item">(.*?)<', html)[0]
-        print("title found = "+str(chapter_title))
+        print("title = "+str(chapter_title))
         return checkFileName(chapter_title)
     
     def parseContent(self, html,keep_text_format=False):

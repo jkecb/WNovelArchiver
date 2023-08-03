@@ -218,13 +218,30 @@ class Novel(NovelCallbacks,FactoryTarget):
         headers = self.headers
         print('accessing: ' + url)
         print()
+        
+        max_retries = 16
+        initial_retry_delay = 2  # initial delay in seconds
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as resp:
-                resp.raise_for_status()
-                html = await resp.text()
-                self.html = html
-                return html
+        for i in range(max_retries):
+            try:
+                if i != 0:
+                    print(f"Attempt {i+1} at {datetime.now()}")
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers) as resp:
+                        resp.raise_for_status()
+                        html = await resp.text()
+                        self.html = html
+                        return html
+            except Exception as e:
+                print(f"Error occurred: {e}")
+                if i < max_retries - 1:  # No delay needed after the last attempt
+                    retry_delay = initial_retry_delay * (2 ** i)  # Exponential backoff
+                    print(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    print("Max retries exceeded. Exiting.")
+                    raise
+
     # def fetchTOCPage(self):
     #     """fetch the TOC page of the novel"""
     #     url = self.url
@@ -250,7 +267,7 @@ class Novel(NovelCallbacks,FactoryTarget):
         print("novel " + self.titre)
         print('last chapter: ' + str(self.getLastChapter()))
         try:
-            html = self.fetchTOCPage();
+            html = await self.fetchTOCPage();
         except  requests.HTTPError :
             print("can't acces the novel TOC page")
             return ''
@@ -263,6 +280,9 @@ class Novel(NovelCallbacks,FactoryTarget):
             # get the chapters url
             lastDL = self.getLastChapter()
             online_chapter_list = online_chapter_list[lastDL:]
+            if len(online_chapter_list)==1:
+                print("Novel is up to date.")
+                return
             print("there are %d chapters to update" % len(online_chapter_list))
             print(online_chapter_list)
             await self.processChapter(online_chapter_list)
@@ -299,7 +319,7 @@ class Novel(NovelCallbacks,FactoryTarget):
     #         print("this web novel has most likely been terminated")
             
     async def processChapter(self, chapList):
-        semaphore = asyncio.Semaphore(3)  # Adjust the number as needed
+        semaphore = asyncio.Semaphore(5)  # Adjust the number as needed
         # Create a new session for each chapter
         async with aiohttp.ClientSession() as session:
             # Gather all tasks and run them concurrently
