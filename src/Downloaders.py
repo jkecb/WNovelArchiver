@@ -218,7 +218,7 @@ class Novel(NovelCallbacks,FactoryTarget):
         headers = self.headers
         print('accessing: ' + url)
         print()
-        
+
         max_retries = 16
         initial_retry_delay = 2  # initial delay in seconds
 
@@ -232,6 +232,19 @@ class Novel(NovelCallbacks,FactoryTarget):
                         html = await resp.text()
                         self.html = html
                         return html
+            except aiohttp.ClientResponseError as e:  # Catch specific HTTP errors
+                if e.status == 404:
+                    print(f"Novel not found:{url}")
+                    raise
+                else:
+                    print(f"HTTP Error occurred: {e}. Retrying...")
+                    if i < max_retries - 1:  # No delay needed after the last attempt
+                        retry_delay = initial_retry_delay * (2 ** i)  # Exponential backoff
+                        print(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                    else:
+                        print("Max retries exceeded. Exiting.")
+                        raise
             except Exception as e:
                 print(f"Error occurred: {e}")
                 if i < max_retries - 1:  # No delay needed after the last attempt
@@ -242,18 +255,6 @@ class Novel(NovelCallbacks,FactoryTarget):
                     print("Max retries exceeded. Exiting.")
                     raise
 
-    # def fetchTOCPage(self):
-    #     """fetch the TOC page of the novel"""
-    #     url = self.url
-    #     headers = self.headers
-    #     print('accessing: ' + url)
-    #     print()
-    #     rep = requests.get(url, headers=headers)
-    #     rep.encoding = 'utf-8'
-    #     rep.raise_for_status()
-    #     html = rep.text
-    #     self.html = html
-    #     return html
 
     def parseOnlineChapterList(self, html) -> list:
         """parse the list of chapters from the HTML of the TOC page"""
@@ -277,10 +278,10 @@ class Novel(NovelCallbacks,FactoryTarget):
             resumeContent = self.parseTocResume(html)
             # self.save("0_TOC",resumeContent)
         if (len(online_chapter_list) >= 1):
-            # get the chapters url
+            # get the chapters url 
             lastDL = self.getLastChapter()
             online_chapter_list = online_chapter_list[lastDL:]
-            if len(online_chapter_list)==1:
+            if len(online_chapter_list)==1 and lastDL!=0:
                 print("Novel is up to date.")
                 return
             print("there are %d chapters to update" % len(online_chapter_list))

@@ -46,7 +46,7 @@ class Chapter():
         return self.url
 
     async def processChapter(self, session, headers):
-        max_retries = 16
+        max_retries = 12
         initial_retry_delay = 2  # initial delay in seconds
 
         for i in range(max_retries):
