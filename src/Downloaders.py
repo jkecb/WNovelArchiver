@@ -212,49 +212,16 @@ class Novel(NovelCallbacks,FactoryTarget):
         """method meant to be implemented by subclasses, determine the url to said novel"""
         raise("setUrl method is not defined")
     
-    async def fetchTOCPage(self):
-        """fetch the TOC page of the novel"""
+    def fetchTOCPage(self):
         url = self.url
-        headers = self.headers
-        print('accessing: ' + url)
-        print()
-
-        max_retries = 16
-        initial_retry_delay = 2  # initial delay in seconds
-
-        for i in range(max_retries):
-            try:
-                if i != 0:
-                    print(f"Attempt {i+1} at {datetime.now()}")
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers) as resp:
-                        resp.raise_for_status()
-                        html = await resp.text()
-                        self.html = html
-                        return html
-            except aiohttp.ClientResponseError as e:  # Catch specific HTTP errors
-                if e.status == 404:
-                    print(f"Novel not found:{url}")
-                    raise
-                else:
-                    print(f"HTTP Error occurred: {e}. Retrying...")
-                    if i < max_retries - 1:  # No delay needed after the last attempt
-                        retry_delay = initial_retry_delay * (2 ** i)  # Exponential backoff
-                        print(f"Retrying in {retry_delay} seconds...")
-                        await asyncio.sleep(retry_delay)
-                    else:
-                        print("Max retries exceeded. Exiting.")
-                        raise
-            except Exception as e:
-                print(f"Error occurred: {e}")
-                if i < max_retries - 1:  # No delay needed after the last attempt
-                    retry_delay = initial_retry_delay * (2 ** i)  # Exponential backoff
-                    print(f"Retrying in {retry_delay} seconds...")
-                    await asyncio.sleep(retry_delay)
-                else:
-                    print("Max retries exceeded. Exiting.")
-                    raise
-
+        headers = {
+            "user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36"
+        }
+        rep = requests.get(url, headers=headers)
+        rep.encoding = 'utf-8'
+        html = rep.text
+        self.html = html
+        return html
 
     def parseOnlineChapterList(self, html) -> list:
         """parse the list of chapters from the HTML of the TOC page"""
@@ -264,14 +231,32 @@ class Novel(NovelCallbacks,FactoryTarget):
         """ format and interpret the content of the home page of the novel """
         warnings.warn("This class doesn't have a method to parse the table of content's resume.")
     
+            
     async def processNovel(self):
         print("novel " + self.titre)
         print('last chapter: ' + str(self.getLastChapter()))
-        try:
-            html = await self.fetchTOCPage();
-        except  requests.HTTPError :
-            print("can't acces the novel TOC page")
-            return ''
+
+        max_retries = 12
+        initial_retry_delay = 2  # initial delay in seconds
+        for i in range(max_retries):
+            try:
+                if i != 0:
+                    print(f"Attempt {i+1} at {datetime.now()}")
+                html = self.fetchTOCPage()
+                break
+            except requests.exceptions.HTTPError as e:
+                print(f"Accessing novel TOC page throws an error:{e}")
+                return ""
+            except Exception as e:
+                print(f"Error occurred: {e}")
+                if i < max_retries - 1:  # No delay needed after the last attempt
+                    retry_delay = initial_retry_delay * (2 ** i)  # Exponential backoff
+                    print(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    print("Max retries exceeded. Exiting.")
+                    raise
+        
         # get the number of chapters (solely for user feedback)
         online_chapter_list = self.parseOnlineChapterList(html)
         if (self.getLastChapter() == 0):
